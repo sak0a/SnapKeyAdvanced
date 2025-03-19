@@ -1,0 +1,12 @@
+#include "../../include/resource.h"
+
+IDI_ICON_ON    ICON    "icon.ico"
+IDI_ICON_OFF   ICON    "icon_off.ico"
+
+#define IDI_ICON_ON    101
+#define IDI_ICON_OFF   102
+
+IDI_ICON_ON    ICON    "icon.ico"
+IDI_ICON_OFF   ICON    "icon_off.ico"
+IDI_ICON1 ICON "snapkey.ico"
+

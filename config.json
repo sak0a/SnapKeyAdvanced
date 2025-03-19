@@ -1,0 +1,31 @@
+{
+  "groups": [
+    {
+      "id": 1,
+      "keys": [
+        65,
+        68
+      ],
+      "name": "Movement Keys 1"
+    },
+    {
+      "id": 2,
+      "keys": [
+        83,
+        87
+      ],
+      "name": "Movement Keys 2"
+    }
+  ],
+  "keymap": {
+    "65": "A",
+    "68": "D",
+    "83": "S",
+    "87": "W"
+  },
+  "settings": {
+    "max_delay_ms": 1,
+    "min_delay_ms": 0,
+    "version": "2.0.0"
+  }
+}
