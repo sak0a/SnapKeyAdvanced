@@ -28,6 +28,7 @@ enum MenuItems {
     ID_TRAY_DELAY_INFO,
     ID_TRAY_REBIND_KEYS,
     ID_TRAY_LOCK_FUNCTION,
+    ID_TRAY_KEYBOARD_MODE,
     ID_TRAY_RESTART
 };
 
@@ -36,6 +37,7 @@ struct AppState {
     int minDelay = 5;
     int maxDelay = 12;
     bool isLocked = false;
+    bool useKeyboard = false;
     HHOOK hHook = nullptr;
     HANDLE hMutex = nullptr;
     NOTIFYICONDATA nid = {};
@@ -70,7 +72,8 @@ public:
             {"settings", {
                 {"min_delay_ms", 5},
                 {"max_delay_ms", 12},
-                {"version", "2.0.0"}
+                {"use_keyboard", false},
+                {"version", "2.0.0"},
             }},
             {"groups", {{
                 {"id", 1},
@@ -126,6 +129,7 @@ public:
                 auto& settings = config["settings"];
                 appState.minDelay = settings["min_delay_ms"];
                 appState.maxDelay = settings["max_delay_ms"];
+                appState.useKeyboard = settings.contains("use_keyboard") ? settings["use_keyboard"].get<bool>() : false;
             }
 
             // Load key groups
@@ -203,6 +207,17 @@ public:
         }
     }
 
+    static void addRandomDelay() {
+        if (appState.maxDelay == appState.minDelay) {
+            this_thread::sleep_for(chrono::nanoseconds(appState.minDelay));
+        } else {
+            random_device rd;
+            mt19937 gen(rd());
+            uniform_int_distribution<> dis(appState.minDelay, appState.maxDelay);
+            this_thread::sleep_for(chrono::nanoseconds(dis(gen)));
+        }
+    }
+
 private:
     static void sendKey(const int targetKey, const bool keyDown) {
         INPUT input = {0};
@@ -213,13 +228,6 @@ private:
         DWORD flags = KEYEVENTF_SCANCODE;
         input.ki.dwFlags = keyDown ? flags : flags | KEYEVENTF_KEYUP;
         SendInput(1, &input, sizeof(INPUT));
-    }
-
-    static void addRandomDelay() {
-        random_device rd;
-        mt19937 gen(rd());
-        uniform_int_distribution<> dis(appState.minDelay, appState.maxDelay);
-        this_thread::sleep_for(chrono::milliseconds(dis(gen)));
     }
 };
 
@@ -331,11 +339,21 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
         if (!(pKeyBoard->flags & 0x10) &&
             appState.keyInfo[pKeyBoard->vkCode].registered) {
 
-            if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN)
-                KeyHandler::handleKeyDown(pKeyBoard->vkCode);
-            if (wParam == WM_KEYUP || wParam == WM_SYSKEYUP)
-                KeyHandler::handleKeyUp(pKeyBoard->vkCode);
-            return 1;
+            if (appState.useKeyboard) {
+                // Use keyboard mode - only add delay between key presses
+                if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) {
+                    // Add delay only when a key is pressed
+                    KeyHandler::addRandomDelay();
+                }
+                // Allow the key press to continue to the application
+                return CallNextHookEx(appState.hHook, nCode, wParam, lParam);
+            } else {
+                if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN)
+                    KeyHandler::handleKeyDown(pKeyBoard->vkCode);
+                if (wParam == WM_KEYUP || wParam == WM_SYSKEYUP)
+                    KeyHandler::handleKeyUp(pKeyBoard->vkCode);
+                return 1;
+            }
         }
     }
     return CallNextHookEx(appState.hHook, nCode, wParam, lParam);
@@ -353,6 +371,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 AppendMenu(hMenu, MF_STRING, ID_TRAY_REBIND_KEYS, TEXT("Rebind Keys"));
                 AppendMenu(hMenu, MF_STRING | (appState.isLocked ? MF_CHECKED : MF_UNCHECKED),
                           ID_TRAY_LOCK_FUNCTION, TEXT("Disable SnapKey"));
+                AppendMenu(hMenu, MF_STRING | (appState.useKeyboard ? MF_CHECKED : MF_UNCHECKED),
+          ID_TRAY_KEYBOARD_MODE, TEXT("Use Keyboard Mode"));
                 AppendMenu(hMenu, MF_STRING, ID_TRAY_RESTART, TEXT("Restart SnapKey"));
                 AppendMenu(hMenu, MF_SEPARATOR, 0, NULL);
                 AppendMenu(hMenu, MF_STRING, ID_TRAY_VERSION_INFO, TEXT("Version Info"));
@@ -399,10 +419,31 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     break;
                 }
 
-                case ID_TRAY_LOCK_FUNCTION:
+                case ID_TRAY_LOCK_FUNCTION: {
                     appState.isLocked = !appState.isLocked;
                     SystemTray::updateIcon(appState.isLocked);
                     break;
+                }
+                case ID_TRAY_KEYBOARD_MODE: {
+                    appState.useKeyboard = !appState.useKeyboard;
+                    try {
+                        ifstream configFileRead(CONFIG_FILE);
+                        if (configFileRead.is_open()) {
+                            json config = json::parse(configFileRead);
+                            configFileRead.close();
+
+                            config["settings"]["use_keyboard"] = appState.useKeyboard;
+
+                            ofstream configFileWrite(CONFIG_FILE);
+                            configFileWrite << config.dump(2);
+                            configFileWrite.close();
+                        }
+                    } catch (const exception& e) {
+                        string error = "Failed to update config: " + string(e.what());
+                        MessageBox(hwnd, error.c_str(), TEXT("SnapKey Error"), MB_ICONERROR);
+                    }
+                    break;
+                }
             }
             break;
 
