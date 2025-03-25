@@ -70,8 +70,8 @@ public:
     static json getDefaultConfig() {
         return {
             {"settings", {
-                {"min_delay_ms", 5},
-                {"max_delay_ms", 12},
+                {"min_delay_ns", 5000},
+                {"max_delay_ns", 12000},
                 {"use_keyboard", false},
                 {"version", "2.0.0"},
             }},
@@ -127,8 +127,8 @@ public:
             // Load delay settings
             if (config.contains("settings")) {
                 auto& settings = config["settings"];
-                appState.minDelay = settings["min_delay_ms"];
-                appState.maxDelay = settings["max_delay_ms"];
+                appState.minDelay = settings["min_delay_ns"];
+                appState.maxDelay = settings["max_delay_ns"];
                 appState.useKeyboard = settings.contains("use_keyboard") ? settings["use_keyboard"].get<bool>() : false;
             }
 
@@ -208,14 +208,18 @@ public:
     }
 
     static void addRandomDelay() {
+        if (appState.maxDelay == 0)
+            return;
+
         if (appState.maxDelay == appState.minDelay) {
             this_thread::sleep_for(chrono::nanoseconds(appState.minDelay));
-        } else {
-            random_device rd;
-            mt19937 gen(rd());
-            uniform_int_distribution<> dis(appState.minDelay, appState.maxDelay);
-            this_thread::sleep_for(chrono::nanoseconds(dis(gen)));
+            return;
         }
+
+        random_device rd;
+        mt19937 gen(rd());
+        uniform_int_distribution<> dis(appState.minDelay, appState.maxDelay);
+        this_thread::sleep_for(chrono::nanoseconds(dis(gen)));
     }
 
 private:
@@ -396,13 +400,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     break;
 
                 case ID_TRAY_VERSION_INFO:
-                    MessageBox(hwnd, "SnapKey 2.0.0", TEXT("Version Info"), MB_OK);
+                    MessageBox(hwnd, "SnapKey 3.0.0", TEXT("Version Info"), MB_OK);
                     break;
 
                 case ID_TRAY_DELAY_INFO: {
-                    string info = "Delay between Keys: " +
-                                to_string(appState.minDelay) + "ms - " +
-                                to_string(appState.maxDelay) + "ms";
+                    string info = "Delay: " +
+                                to_string(appState.minDelay) + "ns - " +
+                                to_string(appState.maxDelay) + "ns";
                     MessageBox(hwnd, info.c_str(), TEXT("Key Delay Info"), MB_OK);
                     break;
                 }
