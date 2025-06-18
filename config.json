@@ -24,8 +24,10 @@
     "87": "W"
   },
   "settings": {
-    "max_delay_ms": 500,
-    "min_delay_ms": 500,
+    "max_delay_ns": 500000,
+    "min_delay_ns": 500000,
+    "withoutkeyboard_max_delay_ns": 1600000,
+    "withoutkeyboard_min_delay_ns": 800000,
     "use_keyboard": true,
     "version": "3.0.0"
   }
