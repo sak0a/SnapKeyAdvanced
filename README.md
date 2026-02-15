@@ -1,5 +1,9 @@
 # SnapKey Advanced v3.0.0
 
+<p align="center">
+  <img src="appicon.png" alt="SnapKey Advanced" width="128">
+</p>
+
 SnapKey Advanced is a Windows application that provides intelligent key management for gaming and productivity. It features two distinct modes of operation: **Standard Mode** for advanced key simulation and **Keyboard Mode** for simple delay injection.
 
 ## Features
